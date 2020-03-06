@@ -33,20 +33,33 @@ public class RobotSoccerSimulation extends JPanel {
 
         Ball(double x, double y, double radius, double speed, Color color) {
             // You know what to do here :)
+            this.x= x;
+            this.y = y;
+            this.radius = radius;
+            this.speed = speed;
+            this.color = color;
         }
 
         void moveToward(double targetX, double targetY) {
-            // Fill this in
+            var dx = targetX - this.x;
+            var dy = targetY - this.y;
+            var v = this.speed / Math.hypot(dx, dy);
+            this.x = constrain(this.x + v * dx, this.radius, WIDTH - this.radius);
+            this.y = constrain(this.y + v * dy, this.radius, HEIGHT - this.radius);
+
         }
 
         // Slow down the ball by FRICTION. Don't let it go negative, though!
         void applyFriction() {
-            // Fill this in
+            this.speed = constrain(this.speed - FRICTION, 0, Double.POSITIVE_INFINITY);
         }
 
         // Returns whether the ball is *entirely* inside the goal
         boolean inside(Goal goal) {
-            return false; // <--------- FIX THIS
+            return (this.x - this.radius > goal.x - goal.w / 2 &&
+                this.x + this.radius < goal.x + goal.w / 2 &&
+                this.y - this.radius > goal.y - goal.h / 2 &&
+                this.y + this.radius < goal.y + goal.h / 2); 
         }
     }
 
@@ -65,6 +78,27 @@ public class RobotSoccerSimulation extends JPanel {
     }
 
     private static Goal goal = new Goal();
+
+    private static void adjustIfCollisions(Ball[] balls) {
+        for (var b1 : balls) {
+            for (var b2 : balls) {
+                if (b1 != b2) {
+                    var dx = b2.x - b1.x;
+                    var dy = b2.y - b1.y;
+                    final var distance = Math.hypot(dx, dy);
+                    var overlap = b1.radius + b2.radius - distance;
+                    if (overlap > 0) {
+                        final var adjustX = (overlap/2) * (dx/distance);
+                        final var adjustY = (overlap/2) * (dy/distance);
+                        b1.x -= adjustX;
+                        b1.y -= adjustY;
+                        b2.x += adjustX;
+                        b2.y += adjustY; 
+                    }
+                }
+            }
+        }
+    }
 
     // You don't need to touch this one.
     public void paintComponent(Graphics g) {
@@ -85,14 +119,13 @@ public class RobotSoccerSimulation extends JPanel {
 
     private void runTheAnimation() {
         while (endMessage == null) {
-            //
-            // TODO: Update the state of the simulation.
-            //
-            // Note that it is okay, and in fact preferred, for you to add helper methods.
-            // For example, you should probably write private helper methods for collision
-            // detection and adjustment, and for ending the simulation by setting the
-            // proper endMessage.
-            //
+            for (int i = 0; i < balls.length; i++) {
+                balls[i].applyFriction();
+                balls[i].moveToward(i == 0 ? goal.x : balls[0].x, i == 0 ? goal.y :
+                balls[0].y);
+            }
+            adjustIfCollisions(balls);
+            endSimulationIfNecessary();
             repaint();
             try {
                 Thread.sleep(10);
@@ -101,6 +134,16 @@ public class RobotSoccerSimulation extends JPanel {
         }
     }
 
+    private void endSimulationIfNecessary() {
+        if (balls[0].speed <= 0)
+            endMessage = "Oh no... try again";
+        if (balls[0].inside(goal))
+            endMessage = "GOOOOAAAALLLL";
+    }
+
+private static double constrain(double value, double low, double high) {
+    return Math.min(Math.max(low, value), high);
+}
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             var panel = new RobotSoccerSimulation();
